@@ -95,3 +95,26 @@ class UnaryOpNode(object):
 
     def __repr__(self):
         return f'({self.op_tok}, {self.node})'
+
+class IfNode(object):
+    """
+    if ... then
+    elif ... then
+    else ...
+    if相关操作
+    """
+    def __init__(self, case, else_case):
+        self.case = case
+        self.else_case = else_case
+
+        # 因为if判断可以有多层，所以case是二元数组
+        self.pos_start = self.case[0][0].pos_start
+        self.pos_end = (self.else_case or self.case[len(self.case) - 1][0]).pos_end
+
+    def __repr__(self):
+        result = ''
+        for condition, expr in self.case[:-1]:
+            result += f"if {condition} then {expr}"
+        if self.else_case:
+            result += f" else {self.else_case}"
+        return f'({result})'

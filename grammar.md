@@ -17,9 +17,18 @@ power       : atom (POW factor)*
 
 atom        : INT|FLOAT|IDENTIFIER
             : LPAREN expr RPAREN
+            : if-expr
+            
+if-expr     : KEYWORD:if expr KEYWORD:then expr
+              (KEYWORD:elif expr KEYWORD:then expr)* // 多层if
+              (KEYWORD:else expr)?
+              
             
   
 ## 说明
+
+* 0次或多次
+? 0次或一次
 
 expr 表达式
 comp-expr 比较表达式 compare

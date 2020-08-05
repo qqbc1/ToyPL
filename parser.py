@@ -65,25 +65,99 @@ class Parser(object):
             ))
         return res
 
+    def if_expr(self):
+        """
+        if-expr     : KEYWORD:if expr KEYWORD:then expr
+                      (KEYWORD:elif expr KEYWORD:then expr)* // 多层if
+                      (KEYWORD:else expr)?
+        :return:
+        """
+        res = ParserResult()
+        case = []
+        else_case = None
+
+        # if-expr     : KEYWORD:if expr KEYWORD:then expr
+        if not self.current_tok.matches(TT_KEYWORD, 'if'):
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                f"expected 'if'"
+            ))
+
+        res.register_advancement()
+        self.advance() # 获取下个token
+
+        condition = res.register(self.expr()) # 获得条件
+        if res.error: return res
+
+        if not self.current_tok.matches(TT_KEYWORD, 'then'):
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                f"expected 'then'"
+            ))
+
+        res.register_advancement()
+        self.advance()  # 获取下个token
+
+        expr = res.register(self.expr())
+        if res.error: return res
+        case.append((condition, expr))
+
+        # (KEYWORD:elif expr KEYWORD:then expr)*
+        while self.current_tok.matches(TT_KEYWORD, 'elif'):
+            res.register_advancement()
+            self.advance()
+            condition = res.register(self.expr())
+            if res.error: return res
+
+            if not self.current_tok.matches(TT_KEYWORD, 'then'):
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    f"expected 'then'"
+                ))
+
+            res.register_advancement()
+            self.advance()
+            expr = res.register(self.expr())
+            if res.error: return res
+            case.append((condition, expr))
+
+        # (KEYWORD:else expr)?
+        if self.current_tok.matches(TT_KEYWORD, 'else'):
+            res.register_advancement()
+            self.advance()
+            else_case = res.register(self.expr())
+            if res.error: return res
+
+        return res.success(IfNode(case, else_case))
+
+
+
+
     def atom(self):
+        """
+        atom        : INT|FLOAT|IDENTIFIER
+                    : LPAREN expr RPAREN
+                    : if-expr
+        :return:
+        """
         res = ParserResult()
         tok = self.current_tok
 
+        # atom  : INT|FLOAT
         if tok.type in (TT_INT, TT_FLOAT):
-            # atom  : INT|FLOAT
             res.register_advancement()
             self.advance()
             return res.success(NumberNode(tok))
 
+        # atom  : IDENTIFIER
         elif tok.type == TT_IDENTIFIER:
-            # atom  : IDENTIFIER
             res.register_advancement()
             self.advance()
             # 访问变量时，只会输入单独的变量名
             return res.success(VarAccessNode(tok))
 
+        # atom : LPAREN expr RPAREN => (1 + 2) * 3
         elif tok.type == TT_LPAREN:
-            # factor : LPAREN expr RPAREN => (1 + 2) * 3
             self.advance()
             expr = res.register(self.expr())
             if res.error:
@@ -97,6 +171,14 @@ class Parser(object):
                     self.current_tok.pos_start, self.current_tok.pos_end,
                     "Expected ')'"
                 ))
+
+        # atom : if-expr
+        elif tok.matches(TT_KEYWORD, 'if'):
+
+            if_expr = res.register(self.if_expr())
+            if res.error: return res
+            return res.success(if_expr)
+
         return res.failure(InvalidSyntaxError(
             tok.pos_start, tok.pos_end,
             # 报错中，期望的值中不包含var，虽然其文法中包含expr（LPAREN expr RPAREN），而expr中又包含var KEYWORD
@@ -142,8 +224,8 @@ class Parser(object):
     def comp_expr(self):
         res = ParserResult()
 
+        # comp-expr   : NOT comp-expr
         if self.current_tok.matches(TT_KEYWORD, 'not'):
-            # comp-expr   : NOT comp-expr
             op_tok = self.current_tok
             res.register_advancement()
             self.advance()

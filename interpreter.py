@@ -120,6 +120,9 @@ class Number(object):
         copy.set_context(self.context)
         return copy
 
+    def is_true(self):
+        return self.value != 0
+
     def __repr__(self):
         return str(self.value)
 
@@ -207,6 +210,12 @@ class Interpreter(object):
         return res.success(value)
 
     def visit_BinOpNode(self, node, context):
+        """
+        二元操作
+        :param node:
+        :param context:
+        :return:
+        """
         res = RTResult()
         # 左递归
         left = res.register(self.visit(node.left_node, context))
@@ -257,6 +266,12 @@ class Interpreter(object):
             return res.success(result.set_pos(node.pos_start, node.pos_end))
 
     def visit_UnaryOpNode(self, node, context):
+        """
+        一元操作
+        :param node:
+        :param context:
+        :return:
+        """
         res = RTResult()
         # 当前number
         number = res.register(self.visit(node.node, context))
@@ -274,3 +289,35 @@ class Interpreter(object):
             return res.failure(error)
         else:
             return res.success(number.set_pos(node.pos_start, node.pos_end))
+
+    def visit_IfNode(self, node, context):
+        """
+        if条件语句
+        :param node: IfNode 对象，其中case是二元组，表示有有多层if判断
+         if ... then ...
+         elif ... then ...
+         elif ... then ...
+         else ...  => [(condition, expr), ...]
+        :param context:
+        :return:
+        """
+        res = RTResult()
+
+        # if ... then ... elif ... then ...
+        for condition, expr in node.case:
+            condition_value = res.register(self.visit(condition, context))
+            if res.error: return res
+
+            if condition_value.is_true():
+                expr_value = res.register(self.visit(expr, context))
+                if res.error: return res
+                return res.success(expr_value)
+
+        # else ...
+        if node.else_case:
+            else_value = res.register(self.visit(node.else_case, context))
+            if res.error: return res
+            return res.success(else_value)
+
+        # if判断，不满足条件，则返回None
+        return res.success(None)
