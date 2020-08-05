@@ -321,3 +321,76 @@ class Interpreter(object):
 
         # if判断，不满足条件，则返回None
         return res.success(None)
+
+    def visit_ForNode(self, node, context):
+        """
+        for循环
+        :param node: ForNode
+        :param context:
+        :return:
+        """
+        res = RTResult()
+
+        start_value = res.register(self.visit(node.start_value_node, context))
+        if res.error: return res
+
+        end_value = res.register(self.visit(node.end_value_node, context))
+        if res.error: return res
+
+        if node.step_value_node:
+            step_value = res.register(self.visit(node.step_value_node, context))
+            if res.error: return res
+        else:
+            step_value = Number(1) # 默认每次循环，只跳过一个元素
+
+        # 允许 step 为负数
+        i = start_value.value
+
+        # In [8]: condition = lambda: i<4
+        # In [9]: i = 1
+        # In [10]: while condition():
+        #     ...:     print(i)
+        #     ...:     i += 1
+        # 1
+        # 2
+        # 3
+        # 4
+        if step_value.value >= 0:
+            # step_value 为正数时，循环start_value -> end_value 从小到大
+            condition = lambda: i < end_value.value
+        else:
+            # step_value 为负数时，循环start_value -> end_value 从大到小
+            condition = lambda : i > end_value.value
+
+        while condition():
+            # node.var_name_tok.value =>  KEYWORD:for IDENTIFIER EQ expr 中的 IDENTIFIER 变量名
+            # 这里将for循环中的变量名的值存入符号表中，让该变量值，在循环后，依旧可以获得累加或累减后的结果
+            context.symbol_table.set(node.var_name_tok.value, Number(i))
+            i += step_value.value # 循环
+            # 执行循环体对应的expr
+            res.register(self.visit(node.body_node, context))
+            if res.error: return res
+
+        return res.success(None)
+
+    def visit_WhileNode(self, node, context):
+        """
+        while循环
+        :param node: WhileNode
+        :param context:
+        :return:
+        """
+        res = RTResult()
+
+        while True:
+            condition = res.register(self.visit(node.condition_node, context))
+            if res.error: return res
+
+            if not condition.is_true(): break # while条件为False时，跳出while循环
+
+            res.register(self.visit(node.body_node, context))
+            if res.error: return res
+
+        return res.success(None)
+
+
