@@ -60,7 +60,15 @@ class RTError(Error):
         pos = self.pos_start
         ctx = self.context
 
-        while ctx: # 遍历运行时的上下文环境，构建错误栈信息
+        # 遍历运行时的上下文环境，构建错误栈信息，例如：
+        # Traceback (most recent call last):
+        #  File <stdin>, line 1, in <program>
+        # Runtime Error: Division by zero
+        #
+        # 1 / 0
+        #     ^
+        while ctx:
+            # pos.fn => 报错文件; pos.ln + 1 => 报错行; ctx.display_name => 报错上下文; result => 报错详情
             result = f' File {pos.fn}, line {str(pos.ln + 1)}, in {ctx.display_name}\n' + result
             pos = ctx.parent_entry_pos
             ctx = ctx.parent

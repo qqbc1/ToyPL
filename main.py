@@ -1,6 +1,12 @@
 from lexer import Lexer
 from parser import Parser
-from interpreter import Interpreter, Context
+from interpreter import Interpreter, Context, Number
+from symbol_table import SymbolTable
+
+# 全局符号表，用于定义默认的全局变量
+global_symbol_table = SymbolTable()
+# 定义默认变量null，其值为0
+global_symbol_table.set('null', Number(0))
 
 def run(fn, text):
     # 生成Tokens
@@ -18,6 +24,7 @@ def run(fn, text):
     # 通过解释器执行程序
     interpreter = Interpreter()
     context = Context("<program>")
+    context.symbol_table = global_symbol_table
     result = interpreter.visit(ast.node, context)
 
     return result.value, result.error

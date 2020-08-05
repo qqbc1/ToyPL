@@ -30,8 +30,18 @@ class Lexer(object):
             if self.current_char in (' ', '\t'):
                 # 为空格或制表符，直接跳过
                 self.advance()
-            elif self.current_char in DIGITS:
+            elif self.current_char in DIGITS: # 识别数字
                 tokens.append(self.make_number())
+
+            elif self.current_char in LETTERS: # 识别字母
+                tokens.append(self.make_identifier())
+
+            elif self.current_char == '=':
+                tokens.append(Token(TT_EQ, pos_start=self.pos))
+                self.advance()
+            elif self.current_char == '^': # 幂操作 x^y => x的y次幂
+                tokens.append(Token(TT_POW, pos_start=self.pos))
+                self.advance()
             elif self.current_char == '+':
                 tokens.append(Token(TT_PLUS, pos_start=self.pos))
                 self.advance()
@@ -60,9 +70,13 @@ class Lexer(object):
         return tokens, None
 
     def make_number(self):
+        """
+        识别数字
+        :return:
+        """
         num_str = ''
         dot_coumt = 0 # 点的个数 => . 小数点
-        pos_start = self.pos.copy()
+        pos_start = self.pos.copy() # 拷贝，避免影响原self.pos
 
         while self.current_char != None and self.current_char in DIGITS + '.':
             if self.current_char == '.':
@@ -77,3 +91,23 @@ class Lexer(object):
             return Token(TT_INT, int(num_str), pos_start, self.pos)
         else:
             return Token(TT_FLOAT, float(num_str), pos_start, self.pos)
+
+    def make_identifier(self):
+        """
+        识别变量
+        :return:
+        """
+        variable_str = ''
+        pos_start = self.pos.copy()
+
+        while self.current_char != None and self.current_char in LETTERS_DIGITS + '_': # 运行变量名中存在下划线
+            variable_str += self.current_char
+            self.advance()
+
+        # 如果字符串在KEYWORDS中，说明该Token是关键字，否则则是变量名
+        if variable_str in KEYWORDS:
+            tok_type = TT_KEYWORDS
+        else:
+            tok_type = TT_IDENTIFIER
+
+        return Token(tok_type, variable_str, pos_start, self.pos)

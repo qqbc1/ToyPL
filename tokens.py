@@ -1,8 +1,14 @@
+import string
+
 ####################
 # CONSTANT 常量
 ####################
 
+# DIGITS 数字
 DIGITS = '0123456789'
+# LETTERS 字母
+LETTERS = string.ascii_letters # A~Z + a~z
+LETTERS_DIGITS = LETTERS + DIGITS
 
 
 ####################
@@ -19,6 +25,14 @@ TT_DIV = "DIV" # 除法
 TT_LPAREN = "LPAREN"
 TT_RPAREN = "RPAREN"
 TT_EOF = "EOF" # 终止符
+TT_EQ = "EQ" # =
+TT_POW = "POW" # 幂
+TT_IDENTIFIER = "IDENTIFIER" # 标识符
+TT_KEYWORDS = "KEYWORDS" # 关键字
+
+KEYWORDS = [
+    'var'
+]
 
 class Token(object):
     def __init__(self, type_, value=None, pos_start=None, pos_end=None):
@@ -34,6 +48,11 @@ class Token(object):
         if pos_end:
             self.pos_end = pos_end
 
+    def matches(self, type_, value):
+        """
+        判断Token是否相同
+        """
+        return self.type == type_ and self.value == value
 
     def __repr__(self):
         if self.value:

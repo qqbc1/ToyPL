@@ -1,5 +1,6 @@
 from tokens import *
 from error import RTError
+from symbol_table import SymbolTable
 
 
 ####################
@@ -45,22 +46,22 @@ class Number(object):
         return self
 
     def added_by(self, other):
-        # 加法操作
+        """加法操作"""
         if isinstance(other, Number):
             return Number(self.value + other.value).set_context(self.context), None
 
     def subbed_by(self, other):
-        # 减法操作
+        """减法操作"""
         if isinstance(other, Number):
             return Number(self.value - other.value).set_context(self.context), None
 
     def multed_by(self, other):
-        # 乘法操作
+        """乘法操作"""
         if isinstance(other, Number):
             return Number(self.value * other.value).set_context(self.context), None
 
     def dived_by(self, other):
-        # 除法操作
+        """除法操作"""
         if isinstance(other, Number):
             if other.value == 0:
                 # 除法分母不可为0
@@ -71,6 +72,18 @@ class Number(object):
                 )
 
             return Number(self.value / other.value).set_context(self.context), None
+
+    def powed_by(self, other):
+        """幂运算"""
+        if isinstance(other, Number):
+            return Number(self.value ** other.value).set_context(self.context), None
+
+    def copy(self):
+        """copy本身"""
+        copy = Number(self.value)
+        copy.set_pos(self.pos_start, self.pos_end)
+        copy.set_context(self.context)
+        return copy
 
     def __repr__(self):
         return str(self.value)
@@ -90,13 +103,15 @@ class Context(object):
         self.display_name = display_name
         self.parent = parent
         self.parent_entry_pos = parent_entry_pos
+        self.symbol_table = None # 符号表
 
 
-####################
-# INTERPRETER 解释器
-####################
 
 class Interpreter(object):
+    """
+    解释器
+    Interpreter类方法名的规则: "visit_" + ast_node.py中的类名
+    """
     def visit(self, node, context):
         """
         递归下降算法
@@ -119,6 +134,43 @@ class Interpreter(object):
             Number(node.tok.value).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
 
+    def visit_VarAccessNode(self, node ,context):
+        """
+        访问变量的值
+        :param node: 节点
+        :param context: 上下文
+        :return:
+        """
+        res = RTResult()
+        var_name = node.var_name_tok.value # 从token中获得变量名
+        value = context.symbol_table.get(var_name) # 从符号表中取值
+
+        if not value:
+            return res.failure(RTError(
+                node.pos_start, node.pos_end,
+                f"{var_name} is not defined",
+                context
+            ))
+        # copy本身，避免影响后续操作（引用型语言要考虑的问题）
+        value = value.copy().set_pos(node.pos_start, node.pos_end)
+        return res.success(value)
+
+    def visit_VarAssignNode(self, node, context):
+        """
+        变量赋值
+        :param node:
+        :param context:
+        :return:
+        """
+        res = RTResult()
+        var_name = node.var_name_tok.value # 变量名
+        # 因为node.value_node对应的节点可能是expr、Number等，所以需要递归处理
+        value = res.register(self.visit(node.value_node, context))
+        if res.error: return res
+        # 将变量名与变量值存入符号表中
+        context.symbol_table.set(var_name, value)
+        return res.success(value)
+
     def visit_BinOpNode(self, node, context):
         res = RTResult()
         # 左递归
@@ -138,6 +190,15 @@ class Interpreter(object):
             result, error = left.multed_by(right)
         elif node.op_tok.type == TT_DIV: # 除法操作符
             result, error = left.dived_by(right)
+        elif node.op_tok.type == TT_POW: # 幂运算
+            result, error = left.powed_by(right)
+        else:
+            # 不支持某种操作
+            return res.failure(RTError(
+                node.pos_start, node.pos_end,
+                f"{node.op_tok.type} is not suppert",
+                context
+            ))
 
         if error:
             return res.failure(error)
