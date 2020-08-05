@@ -1,6 +1,6 @@
 from position import Position
 from tokens import *
-from error import IllegalCharError
+from error import *
 
 
 ####################
@@ -36,9 +36,17 @@ class Lexer(object):
             elif self.current_char in LETTERS: # 识别字母
                 tokens.append(self.make_identifier())
 
+            elif self.current_char == '!':
+                token, error = self.make_not_equals()
+                if error:
+                    return [], error
+                tokens.append(token)
             elif self.current_char == '=':
-                tokens.append(Token(TT_EQ, pos_start=self.pos))
-                self.advance()
+                tokens.append(self.make_equals())
+            elif self.current_char == '<':
+                tokens.append(self.make_less_than())
+            elif self.current_char == '>':
+                tokens.append(self.make_greater_than())
             elif self.current_char == '^': # 幂操作 x^y => x的y次幂
                 tokens.append(Token(TT_POW, pos_start=self.pos))
                 self.advance()
@@ -106,8 +114,65 @@ class Lexer(object):
 
         # 如果字符串在KEYWORDS中，说明该Token是关键字，否则则是变量名
         if variable_str in KEYWORDS:
-            tok_type = TT_KEYWORDS
+            tok_type = TT_KEYWORD
         else:
             tok_type = TT_IDENTIFIER
 
         return Token(tok_type, variable_str, pos_start, self.pos)
+
+    def make_not_equals(self):
+        """
+        匹配 !=
+        :return:
+        """
+        pos_start = self.pos.copy()
+
+        self.advance()
+        if self.current_char == '=': # != 不等于
+            self.advance()
+            return Token(TT_NE, pos_start=pos_start, pos_end=self.pos), None
+
+        self.advance()
+        return None, ExpectedCharError(pos_start, self.pos, "'=' (after '!')")
+
+    def make_equals(self):
+        """
+        匹配 = 或 ==
+        :return:
+        """
+        tok_type = TT_EQ
+        pos_start = self.pos.copy()
+
+        self.advance()
+        if self.current_char == '=': # ==
+            self.advance()
+            tok_type = TT_EE
+        return Token(tok_type, pos_start=pos_start, pos_end=self.pos)
+
+    def make_less_than(self):
+        """
+        匹配 < 或 <=
+        :return:
+        """
+        tok_type = TT_LT
+        pos_start = self.pos.copy()
+
+        self.advance()
+        if self.current_char == '=': # <=
+            self.advance()
+            tok_type = TT_LTE
+        return Token(tok_type, pos_start=pos_start, pos_end=self.pos)
+
+    def make_greater_than(self):
+        """
+        匹配 > 或 >=
+        :return:
+        """
+        tok_type = TT_GT
+        pos_start = self.pos.copy()
+
+        self.advance()
+        if self.current_char == '=': # >=
+            self.advance()
+            tok_type = TT_GTE
+        return Token(tok_type, pos_start=pos_start, pos_end=self.pos)

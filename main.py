@@ -6,7 +6,9 @@ from symbol_table import SymbolTable
 # 全局符号表，用于定义默认的全局变量
 global_symbol_table = SymbolTable()
 # 定义默认变量null，其值为0
-global_symbol_table.set('null', Number(0))
+global_symbol_table.set('NULL', Number(0))
+global_symbol_table.set('FALSE', Number(0))
+global_symbol_table.set('TRUE', Number(1))
 
 def run(fn, text):
     # 生成Tokens

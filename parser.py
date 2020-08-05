@@ -61,7 +61,7 @@ class Parser(object):
         if not res.error and self.current_tok.type != TT_EOF:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected '+', '-', '*' or '/'"
+                "Expected '+', '-', '*', '/', '^', '==', '!=', '<', '>', <=', '>=', 'AND' or 'OR'"
             ))
         return res
 
@@ -114,7 +114,6 @@ class Parser(object):
 
     def factor(self):
         """
-        因子
         factor  : (PLUS|MINUS) factor
                 : power
         :return:
@@ -128,17 +127,42 @@ class Parser(object):
             self.advance()
             factor = res.register(self.factor())
             if res.error: return res
+            # UnaryOpNode 一元操作 => (PLUS|MINUS) factor
             return res.success(UnaryOpNode(tok, factor))
         # factor    : power
         return self.power()
 
     def term(self):
         """
-        项
         term    : factor (MUL|DIV) factor)*
         :return:
         """
         return self.bin_op(self.factor, (TT_MUL, TT_DIV))
+
+    def comp_expr(self):
+        res = ParserResult()
+
+        if self.current_tok.matches(TT_KEYWORD, 'not'):
+            # comp-expr   : NOT comp-expr
+            op_tok = self.current_tok
+            res.register_advancement()
+            self.advance()
+            node = res.register(self.comp_expr())
+            if res.error: return res
+            return res.success(UnaryOpNode(op_tok, node))
+        else:
+            # comp-expr    : arith-expr ((EE|LT|GT|LTE|GTE) arith-expr)*
+            node = res.register(self.bin_op(self.arith_expr, (TT_EE, TT_NE, TT_LT, TT_GT, TT_LTE, TT_GTE)))
+            if res.error:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected int, float, identifier, '+', '-', '(' or 'not'"
+                ))
+            return res.success(node)
+
+    def arith_expr(self):
+        # arith-expr  : term ((PLUS|MINUS) term)*
+        return self.bin_op(self.term, (TT_PLUS, TT_MINUS))
 
     def expr(self):
         """
@@ -151,7 +175,7 @@ class Parser(object):
 
         # 如果token为var，则是声明语句
         # expr    : KEYWORD:var IDENTIFIER EQ expr
-        if self.current_tok.matches(TT_KEYWORDS, 'var'):
+        if self.current_tok.matches(TT_KEYWORD, 'var'):
             res.register_advancement()
             self.advance()
 
@@ -185,13 +209,12 @@ class Parser(object):
             # 赋值操作 var a = 1 + 4 => KEYWORD: var, Identifier: a, expr: 1 + 4
             return res.success(VarAssignNode(var_name, expr))
         else:
-           # expr    : term ((PLUS|MINUS) term)*
-            node = res.register(self.bin_op(self.term, (TT_PLUS, TT_MINUS)))
+            node = res.register(self.bin_op(self.comp_expr, ((TT_KEYWORD, 'and'), (TT_KEYWORD, 'or'))))
             if res.error:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_end, self.current_tok.pos_end,
                     # 期望的值中，包含var
-                    "Expected 'var', int, float, identifier, '+', '-' or '('"
+                    "Expected 'var', int, float, identifier, '+', '-', '(' or 'not'"
                 ))
             return res.success(node)
 
@@ -203,7 +226,7 @@ class Parser(object):
         left = res.register((func_a()))  # 递归调用
         if res.error: return res
 
-        while self.current_tok.type in ops:
+        while self.current_tok.type in ops or (self.current_tok.type, self.current_tok.value) in ops:
             op_tok = self.current_tok
             res.register_advancement()
             self.advance()

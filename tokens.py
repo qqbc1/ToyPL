@@ -28,10 +28,20 @@ TT_EOF = "EOF" # 终止符
 TT_EQ = "EQ" # =
 TT_POW = "POW" # 幂
 TT_IDENTIFIER = "IDENTIFIER" # 标识符
-TT_KEYWORDS = "KEYWORDS" # 关键字
+TT_KEYWORD = "KEYWORD" # 关键字
+TT_EE = "EE" # ==
+TT_NE = "NE" # !=
+TT_LT = "LT" # <
+TT_GT = "GT" # >
+TT_LTE = "LTE" # <=
+TT_GTE = "GTE" # >=
+
 
 KEYWORDS = [
-    'var'
+    'var',
+    'and',
+    'or',
+    'not'
 ]
 
 class Token(object):

@@ -16,6 +16,17 @@ def test():
     func(command)
     command = 'var x = 4 + a - (1 * b)'
     func(command)
-
+    command = '3 >= 3' # 1
+    func(command)
+    command = '6.0 > 7' # 1
+    func(command)
+    command = '3 < 1' # 0
+    func(command)
+    command = '3 <= 2' # 0
+    func(command)
+    command = '1 == 1 and 3 > 2'
+    func(command)
+    command = '(1 == 1) and (3 > 2)'
+    func(command)
 
 test()

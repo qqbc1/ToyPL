@@ -35,6 +35,11 @@ class IllegalCharError(Error):
         # Illegal Character => 非法字符
         super().__init__(pos_start, pos_end, "Illegal Character", details)
 
+class ExpectedCharError(Error):
+    def __init__(self, pos_start, pos_end, details):
+        # Expected Character => 预期字符
+        super().__init__(pos_start, pos_end, 'Expected Character', details)
+
 class InvalidSyntaxError(Error):
     def __init__(self, pos_start, pos_end, details=''):
         # Invalid Syntax => 无效的语法
