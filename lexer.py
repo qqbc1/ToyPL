@@ -70,6 +70,8 @@ class Lexer(object):
             elif self.current_char == ',':
                 tokens.append(Token(TT_COMMA, pos_start=self.pos))
                 self.advance()
+            elif self.current_char == '"':
+                tokens.append(self.make_string())
             else:
                 # 没有匹配任何Token，return some error
                 pos_start = self.pos.copy()
@@ -101,6 +103,34 @@ class Lexer(object):
             return Token(TT_INT, int(num_str), pos_start, self.pos)
         else:
             return Token(TT_FLOAT, float(num_str), pos_start, self.pos)
+
+    def make_string(self):
+        string = ''
+        pos_start = self.pos.copy()
+        escape_character = False # 是否为转义字符 => \"
+        escape_characters = {
+            'n': '\n',
+            't': '\t'
+        }
+
+        self.advance()
+        # 当前字符不为空 以及 (不为 " 或者是转义字符串 => \")
+        while self.current_char != None and (self.current_char != '"' or escape_character):
+            if escape_character:
+                # 如果是转义字符，则需要获得字符原始的值
+                string += escape_characters.get(self.current_char, self.current_char)
+                escape_character = False
+            else:
+                if self.current_char == '\\': # python 中 \\ 其实就是当个 \
+                    escape_character = True # 为转义字符
+                else:
+                    string += self.current_char # 普通字符，直接拼接则可
+
+            self.advance()
+
+        self.advance()
+        return Token(TT_STRING, string, pos_start, self.pos)
+
 
     def make_identifier(self):
         """

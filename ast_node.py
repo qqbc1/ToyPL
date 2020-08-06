@@ -15,6 +15,23 @@ class NumberNode(object):
     def __repr__(self):
         return f'{self.tok}'
 
+class StringNode(object):
+    """
+    字符串节点
+    """
+
+    def __init__(self, tok):
+        """
+        :param tok: 节点的token
+        """
+        self.tok = tok
+
+        self.pos_start = self.tok.pos_start
+        self.pos_end = self.tok.pos_end
+
+    def __repr__(self):
+        return f'{self.tok}'
+
 class VarAccessNode(object):
     """
     访问变量名

@@ -37,6 +37,7 @@ TT_LTE = "LTE" # <=
 TT_GTE = "GTE" # >=
 TT_COMMA = "COMMA" # ,
 TT_ARROW = "ARROW" # -> 中的箭头 >
+TT_STRING = "STRING" # 字符串
 
 
 KEYWORDS = [

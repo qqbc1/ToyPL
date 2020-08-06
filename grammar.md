@@ -15,9 +15,9 @@ factor      : (PLUS|MINUS) factor
         
 power       : call (POW factor)*
 
-call        : atom (LPAREN (expr (COMMA expr)*)? RPAREN)
+call        : atom (LPAREN (expr (COMMA expr)*)? RPAREN)?
 
-atom        : INT|FLOAT|IDENTIFIER
+atom        : INT|FLOAT|STRING|IDENTIFIER
             : LPAREN expr RPAREN
             : if-expr
             : for-expr
