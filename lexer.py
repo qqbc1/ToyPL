@@ -54,8 +54,7 @@ class Lexer(object):
                 tokens.append(Token(TT_PLUS, pos_start=self.pos))
                 self.advance()
             elif self.current_char == '-':
-                tokens.append(Token(TT_MINUS, pos_start=self.pos))
-                self.advance()
+                tokens.append(self.make_minus_or_arrow())
             elif self.current_char == '*':
                 tokens.append(Token(TT_MUL, pos_start=self.pos))
                 self.advance()
@@ -67,6 +66,9 @@ class Lexer(object):
                 self.advance()
             elif self.current_char == ')':
                 tokens.append(Token(TT_RPAREN, pos_start=self.pos))
+                self.advance()
+            elif self.current_char == ',':
+                tokens.append(Token(TT_COMMA, pos_start=self.pos))
                 self.advance()
             else:
                 # 没有匹配任何Token，return some error
@@ -175,4 +177,19 @@ class Lexer(object):
         if self.current_char == '=': # >=
             self.advance()
             tok_type = TT_GTE
+        return Token(tok_type, pos_start=pos_start, pos_end=self.pos)
+
+    def make_minus_or_arrow(self):
+        """
+        匹配 - 或 ->
+        :return:
+        """
+        tok_type = TT_MINUS
+        pos_start = self.pos.copy()
+
+        self.advance()
+        if self.current_char == '>':
+            self.advance()
+            tok_type = TT_ARROW
+
         return Token(tok_type, pos_start=pos_start, pos_end=self.pos)

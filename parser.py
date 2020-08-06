@@ -84,7 +84,7 @@ class Parser(object):
         if not self.current_tok.matches(TT_KEYWORD, 'if'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"expected 'if'"
+                "expected 'if'"
             ))
 
         res.register_advancement()
@@ -96,7 +96,7 @@ class Parser(object):
         if not self.current_tok.matches(TT_KEYWORD, 'then'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"expected 'then'"
+                "expected 'then'"
             ))
 
         res.register_advancement()
@@ -116,7 +116,7 @@ class Parser(object):
             if not self.current_tok.matches(TT_KEYWORD, 'then'):
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"expected 'then'"
+                    "expected 'then'"
                 ))
 
             res.register_advancement()
@@ -149,7 +149,7 @@ class Parser(object):
         if not self.current_tok.matches(TT_KEYWORD, 'for'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'for'"
+                "Expected 'for'"
             ))
 
         res.register_advancement()
@@ -158,7 +158,7 @@ class Parser(object):
         if self.current_tok.type != TT_IDENTIFIER:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'identifier'"
+                "Expected 'identifier'"
             ))
 
         var_name = self.current_tok
@@ -168,7 +168,7 @@ class Parser(object):
         if self.current_tok.type != TT_EQ:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'identifier'"
+                "Expected 'identifier'"
             ))
 
         res.register_advancement()
@@ -179,7 +179,7 @@ class Parser(object):
         if not self.current_tok.matches(TT_KEYWORD, 'to'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'to'"
+            "Expected 'to'"
             ))
 
         res.register_advancement()
@@ -200,7 +200,7 @@ class Parser(object):
         if not self.current_tok.matches(TT_KEYWORD, 'then'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'then'"
+            "Expected 'then'"
             ))
 
         res.register_advancement()
@@ -224,7 +224,7 @@ class Parser(object):
         if not self.current_tok.matches(TT_KEYWORD, 'while'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'while'"
+            "Expected 'while'"
             ))
 
         res.register_advancement()
@@ -236,7 +236,7 @@ class Parser(object):
         if not self.current_tok.matches(TT_KEYWORD, 'then'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'then'"
+            "Expected 'then'"
             ))
 
         res.register_advancement()
@@ -246,12 +246,157 @@ class Parser(object):
 
         return res.success(WhileNode(condition, body))
 
+    def func_expr(self):
+        """
+        解析函数定义
+        func-expr   : KEYWORD func IDENTIFIER?
+              LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN
+              ARROW expr
+        :return:
+        """
+        res = ParserResult()
+
+        if not self.current_tok.matches(TT_KEYWORD, 'func'):
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+            "Expected 'func'"
+            ))
+
+        res.register_advancement()
+        self.advance()
+
+        if self.current_tok.type == TT_IDENTIFIER: # 函数名
+            var_name_tok = self.current_tok
+            res.register_advancement()
+            self.advance()
+            # 函数名后必然跟着 ( => func a(
+            if self.current_tok.type != TT_LPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected '('"
+                ))
+        else:
+            var_name_tok = None # 匿名函数
+            # 匿名函数后，直接跟 (
+            if self.current_tok.type != TT_LPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected identifier or '('"
+                ))
+
+        res.register_advancement()
+        self.advance()
+        arg_name_toks = []
+
+        # 参数名，函数至少有一个参数 => func a(x
+        if self.current_tok.type == TT_IDENTIFIER:
+            arg_name_toks.append(self.current_tok)
+            res.register_advancement()
+            self.advance()
+            # 参数中有逗号分隔，则有多个参数 => func a(x,y
+            while self.current_tok.type == TT_COMMA:
+                res.register_advancement()
+                self.advance()
+                if self.current_tok.type != TT_IDENTIFIER:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Expected identifier"
+                    ))
+
+                # 将参数添加到arg_name_toks列表中
+                arg_name_toks.append(self.current_tok)
+                res.register_advancement()
+                self.advance()
+
+            # 参数匹配完后，就需要匹配右括号 => func a(x,y)
+            if self.current_tok.type != TT_RPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected , or ')'"
+                ))
+
+        else: # 函数定义时，可以没有参数 => func a()
+            if self.current_tok.type != TT_RPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected identifier or ')'"
+                ))
+
+        res.register_advancement()
+        self.advance()
+        # func a (x,y) ->
+        if self.current_tok.type != TT_ARROW:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected -> "
+            ))
+
+        res.register_advancement()
+        self.advance()
+        # 解析函数体中的逻辑，获得该函数的返回值
+        node_to_return = res.register(self.expr())
+        if res.error: return res
+        return res.success(FuncNode(var_name_tok, arg_name_toks, node_to_return))
+
+    def call(self):
+        """
+        解析函数调用
+        call        : atom (LPAREN (expr (COMMA expr)*)? RPAREN)
+        a(1+2, 3+4)
+        """
+
+        res = ParserResult()
+
+        atom = res.register(self.atom())
+        if res.error: return res
+
+        if self.current_tok.type == TT_LPAREN:
+            res.register_advancement()
+            self.advance()
+            arg_nodes = []
+
+            # 调用函数时，没有传参数
+            if self.current_tok.type == TT_RPAREN:
+                res.register_advancement()
+                self.advance()
+            else:
+                # 调用函数时，参数可以写成expr，expr也包含INT|FLOAT|IDENTIFIER等 => a(1+2
+                arg_nodes.append(res.register(self.expr()))
+                if res.error:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Expected ')', 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(' or 'NOT'"
+                    ))
+
+                # 多个参数，由逗号分开
+                while self.current_tok.type == TT_COMMA:
+                    res.register_advancement()
+                    self.advance()
+                    # 将调用参数添加到arg_nodes列表中
+                    arg_nodes.append(res.register(self.expr()))
+                    if res.error: return res
+
+                # a(1+2, 3)
+                if self.current_tok.type != TT_RPAREN:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Expected ',' or ')'"
+                    ))
+
+                res.register_advancement()
+                self.advance()
+
+            return res.success(CallNode(atom, arg_nodes))
+        return res.success(atom)
 
     def atom(self):
         """
         atom        : INT|FLOAT|IDENTIFIER
                     : LPAREN expr RPAREN
                     : if-expr
+                    : for-expr
+                    : while-expr
+                    : func-expr
         :return:
         """
         res = ParserResult()
@@ -304,20 +449,26 @@ class Parser(object):
             if res.error: return res
             return res.success(while_expr)
 
+        # atom : func-expr
+        elif tok.matches(TT_KEYWORD, 'func'):
+            func_expr = res.register(self.func_expr())
+            if res.error: return res
+            return res.success(func_expr)
+
         return res.failure(InvalidSyntaxError(
             tok.pos_start, tok.pos_end,
             # 报错中，期望的值中不包含var，虽然其文法中包含expr（LPAREN expr RPAREN），而expr中又包含var KEYWORD
             # 但这里并不存赋值的情况，所以报错中不包含var
             # 编程语言中的错误提示非常重要，所以要尽可能保持正确
-            "Expected int, float, identifier, '+', '-', or'('"
+            "Expected int, float, identifier, '+', '-', '(', 'IF', 'FOR', 'WHILE', 'FUN'"
         ))
 
     def power(self):
         """
-        power   : atom (POW factor)*
+        power       : call (POW factor)*
         :return:
         """
-        return self.bin_op(self.atom, (TT_POW,), self.factor)
+        return self.bin_op(self.call, (TT_POW,), self.factor)
 
     def factor(self):
         """

@@ -47,5 +47,9 @@ def test():
     func(command)
     command = 'res'
     func(command)
+    command = 'func add(a,b) -> a + b'
+    func(command)
+    command = 'add(1, 3)'
+    func(command)
 
 test()

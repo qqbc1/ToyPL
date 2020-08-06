@@ -2,11 +2,11 @@ class SymbolTable(object):
     """
     符号表实现
     """
-    def __init__(self):
+    def __init__(self, parent=None):
         # 符号表
         self.symbols = {}
         # 用于判断作用域
-        self.parent = None
+        self.parent = parent
 
     def get(self, name):
         """

@@ -13,13 +13,16 @@ term        : factor (MUL|DIV) factor)*
 factor      : (PLUS|MINUS) factor
             : power
         
-power       : atom (POW factor)*
+power       : call (POW factor)*
+
+call        : atom (LPAREN (expr (COMMA expr)*)? RPAREN)
 
 atom        : INT|FLOAT|IDENTIFIER
             : LPAREN expr RPAREN
             : if-expr
             : for-expr
             : while-expr
+            : func-expr
             
 if-expr     : KEYWORD:if expr KEYWORD:then expr
               (KEYWORD:elif expr KEYWORD:then expr)* // 多层if
@@ -30,7 +33,9 @@ for-expr    : KEYWORD:for IDENTIFIER EQ expr KEYWORD:to expr
               
 while-expr  : KEYWORD:while expr KEYWROD:then expr
               
-            
+func-expr   : KEYWORD func IDENTIFIER?
+              LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN
+              ARROW expr    // 支持匿名函数
   
 ## 说明
 

@@ -30,9 +30,8 @@ class RTResult(object):
 # VALUES
 ####################
 
-class Number(object):
-    def __init__(self, value):
-        self.value = value
+class Value(object):
+    def __init__(self):
         self.set_pos()
         self.set_context()
 
@@ -45,20 +44,48 @@ class Number(object):
         self.context = context
         return self
 
+    def copy(self):
+        raise Exception('No copy method defined')
+
+    def is_true(self):
+        return False
+
+    def illegal_operation(self, other=None):
+        if not other:
+            other = self
+        return RTError(
+            self.pos_start, other.pos_end,
+            # Illegal operation => 非法操作
+            "Illegal operation",
+            self.context
+        )
+
+
+class Number(Value):
+    def __init__(self, value):
+        super().__init__()
+        self.value = value
+
     def added_by(self, other):
         """加法操作"""
         if isinstance(other, Number):
             return Number(self.value + other.value).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def subbed_by(self, other):
         """减法操作"""
         if isinstance(other, Number):
             return Number(self.value - other.value).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def multed_by(self, other):
         """乘法操作"""
         if isinstance(other, Number):
             return Number(self.value * other.value).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def dived_by(self, other):
         """除法操作"""
@@ -72,43 +99,62 @@ class Number(object):
                 )
 
             return Number(self.value / other.value).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def powed_by(self, other):
         """幂运算"""
         if isinstance(other, Number):
             return Number(self.value ** other.value).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def get_comparison_eq(self, other):
         if isinstance(other, Number):
             return Number(int(self.value == other.value)).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def get_comparison_ne(self, other):
         if isinstance(other, Number):
             return Number(int(self.value != other.value)).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def get_comparison_lt(self, other):
         if isinstance(other, Number):
             return Number(int(self.value < other.value)).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def get_comparison_gt(self, other):
         if isinstance(other, Number):
             return Number(int(self.value > other.value)).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def get_comparison_lte(self, other):
         if isinstance(other, Number):
             return Number(int(self.value <= other.value)).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def get_comparison_gte(self, other):
         if isinstance(other, Number):
             return Number(int(self.value >= other.value)).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def anded_by(self, other):
         if isinstance(other, Number):
             return Number(int(self.value and other.value)).set_context(self.context), None
-
+        else:
+            return None, Value.illegal_operation(self, other)
     def ored_by(self, other):
         if isinstance(other, Number):
             return Number(int(self.value or other.value)).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
 
     def notted(self):
         return Number(1 if self.value == 0 else 0).set_context(self.context), None
@@ -126,6 +172,75 @@ class Number(object):
     def __repr__(self):
         return str(self.value)
 
+
+class Function(Value):
+    def __init__(self, name, body_node, arg_names):
+        """
+        函数对象
+        :param name: 函数名
+        :param body_node: 函数体
+        :param arg_names: 函数参数
+        """
+        super().__init__()
+        # anonymous 匿名
+        self.name = name or "<anonymous>"
+        self.body_node = body_node
+        self.arg_names = arg_names
+
+    def execute(self, args):
+        """
+        执行函数
+        :param args: 执行函数时，传入的参数
+        :return:
+        """
+        res = RTResult()
+        # 为函数单独创建新的解释器
+        interpreter = Interpreter()
+        # 为函数创建新的上下文，每个函数都有独立的上下文
+        # 其parent.context为调该用函数的对象的context，即self.context
+        new_context = Context(self.name, self.context, self.pos_start)
+        # 为函数创建新的符号表，每个函数都有独立的符号表
+        # 其parent.symbol_table为调用该函数的对象的symbol_table
+        new_context.symbol_table = SymbolTable(new_context.parent.symbol_table)
+
+        # 调用函数时传入的参数多于函数定义中的参数
+        if len(args) > len(self.arg_names):
+            return res.failure(RTError(
+                self.pos_start, self.pos_end,
+                f"{len(args) - len(self.arg_names)} too many args passed into '{self.name}'",
+                self.context
+            ))
+
+        # 调用函数时传入的参数多于函数定义中的参数
+        if len(args) < len(self.arg_names):
+            return res.failure(RTError(
+                self.pos_start, self.pos_end,
+                f"{len(args) - len(self.arg_names)} too few args passed into '{self.name}'",
+                self.context
+            ))
+
+        for i in range(len(args)):
+            arg_name = self.arg_names[i]
+            arg_value = args[i]
+            # 更新当前节点的上下文，方便报错时定位
+            arg_value.set_context(new_context)
+            # 将调用函数时，传入的参数值存入函数符号表中
+            new_context.symbol_table.set(arg_name, arg_value)
+
+        # 通过解释器执行函数体中的逻辑
+        value = res.register(interpreter.visit(self.body_node, new_context))
+        if res.error: return res
+        return res.success(value)
+
+    def copy(self):
+        copy = Function(self.name, self.body_node, self.arg_names)
+        copy.set_context(self.context)
+        copy.set_pos(self.pos_start, self.pos_end)
+        return copy
+
+    def __repr__(self):
+        return f"<function {self.name}>"
+
 ####################
 # CONTEXT 上下文
 ####################
@@ -142,7 +257,6 @@ class Context(object):
         self.parent = parent
         self.parent_entry_pos = parent_entry_pos
         self.symbol_table = None # 符号表
-
 
 
 class Interpreter(object):
@@ -392,5 +506,50 @@ class Interpreter(object):
             if res.error: return res
 
         return res.success(None)
+
+    def visit_FuncNode(self, node, context):
+        """
+        定义函数，获得函数可调用对象
+        :param node: FuncNode
+        :param context: 上下文
+        :return:
+        """
+        res = RTResult()
+
+        func_name = node.var_name_tok.value if node.var_name_tok else None # 函数名
+        body_node = node.body_node
+        arg_names = [arg_name.value for arg_name in node.arg_name_toks]
+        # 通过Function构建函数对象
+        func_value = Function(func_name, body_node, arg_names).set_context(context).set_pos(node.pos_start, node.pos_end)
+
+        if node.var_name_tok:
+            # 将函数对象存入到函数parent.context中，让 visit_CallNode 方法使用
+            context.symbol_table.set(func_name, func_value)
+
+        return res.success(func_value)
+
+    def visit_CallNode(self, node, context):
+        """
+        调用函数，获得函数执行结果
+        :param node: CallNode
+        :param context:
+        :return:
+        """
+        res = RTResult()
+        args = []
+        # self.visit(node.node_to_call, context) -> visit_VarAccessNode()
+        # visit_VarAccessNode()方法通过节点名（即函数名）从符号表中获得函数对象本身
+        value_to_call = res.register(self.visit(node.node_to_call, context))
+        if res.error: return res
+        value_to_call = value_to_call.copy().set_pos(node.pos_start, node.pos_end)
+
+        for arg_node in node.arg_nodes:
+            # 函数参数可能是执行式，也可以只是个数字 => a(1+2, 5)
+            args.append(res.register(self.visit(arg_node, context)))
+            if res.error: return res
+
+        return_value = res.register(value_to_call.execute(args))
+        if res.error: return res
+        return res.success(return_value)
 
 
