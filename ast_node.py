@@ -32,6 +32,20 @@ class StringNode(object):
     def __repr__(self):
         return f'{self.tok}'
 
+
+class ListNode(object):
+    def __init__(self, element_nodes, pos_start, pos_end):
+        """
+        list列表
+        :param element_nodes: list中的元素
+        :param pos_start:
+        :param pos_end:
+        """
+        self.element_nodes = element_nodes
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+
+
 class VarAccessNode(object):
     """
     访问变量名

@@ -437,6 +437,11 @@ class Parser(object):
                     "Expected ')'"
                 ))
 
+        elif tok.type == TT_LSQUARE:
+            list_expr = res.register(self.list_expr())
+            if res.error: return res
+            return res.success(list_expr)
+
         # atom : if-expr
         elif tok.matches(TT_KEYWORD, 'if'):
             if_expr = res.register(self.if_expr())
@@ -468,6 +473,55 @@ class Parser(object):
             # 编程语言中的错误提示非常重要，所以要尽可能保持正确
             "Expected int, float, identifier, '+', '-', '(', 'IF', 'FOR', 'WHILE', 'FUN'"
         ))
+
+    def list_expr(self):
+        """
+        List
+        :return:
+        """
+        res = ParserResult()
+        element_nodes = []
+        pos_start = self.current_tok.pos_start.copy()
+
+        if self.current_tok.type != TT_LSQUARE:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected '['"
+            ))
+
+        res.register_advancement()
+        self.advance()
+        # 空列表 => []
+        if self.current_tok.type == TT_RSQUARE:
+            res.register_advancement()
+            self.advance()
+        else:
+            # 非空列表 => [1,2,3]
+            element_nodes.append(res.register(self.expr()))
+            if res.error:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected ']', 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(', '[' or 'NOT'"
+                ))
+
+            # 匹配list中的元素
+            while self.current_tok.type == TT_COMMA:
+                res.register_advancement()
+                self.advance()
+
+                element_nodes.append(res.register(self.expr()))
+                if res.error: return res
+
+            if self.current_tok.type != TT_RSQUARE:
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected ',' or ']''"
+                ))
+
+            res.register_advancement()
+            self.advance()
+
+        return res.success(ListNode(element_nodes, pos_start, self.current_tok.pos_end.copy()))
 
     def power(self):
         """

@@ -203,6 +203,87 @@ class String(Value):
     def __repr__(self):
         return f'"{self.value}"'
 
+
+class List(Value):
+    def __init__(self, elements):
+        super().__init__()
+        self.elements = elements
+
+    def added_by(self, other):
+        """
+        添加元素在list，2种情况：
+        1. [1,2,3] + 4 = [1,2,3,4]
+        2. [1,2,3] + [4,5,6] = [1,2,3,[4,5,6]]
+        :param other:
+        :return:
+        """
+        new_list = self.copy()
+        new_list.elements.append(other)
+        return new_list, None
+
+    def subbed_by(self, other):
+        """
+        删除其中
+        :param other:
+        :return:
+        """
+        if isinstance(other, Number):
+            new_list = self.copy()
+            try:
+                # pop 弹出list中对应下标的元素
+                new_list.elements.pop(other.value)
+                return new_list, None
+            except:
+                return None, RTError(
+                    other.pos_start, other.pos_end,
+                    # 超过list边界
+                    "Element as this index could not be removed from list because index is out of bounds",
+                    self.context
+                )
+        else:
+            return None, Value.illegal_operation(self, other)
+
+    def multed_by(self, other):
+        """
+        拼接list
+        [1,2,3] * [4,5,6] = [1,2,3,4,5,6]
+        :param other:
+        :return:
+        """
+        if isinstance(other, List):
+            new_list = self.copy()
+            new_list.elements.extend(other.elements)
+            return new_list, None
+
+    def dived_by(self, other):
+        """
+        获取list中的元素
+        [1,2,3] / 0 = 1
+        :param other:
+        :return:
+        """
+        if isinstance(other, Number):
+            try:
+                return self.elements[other.value], None
+            except:
+                return None, RTError(
+                    other.pos_start, other.pos_end,
+                    "Element as this index could not be removed from list because index is out of bounds",
+                    self.context
+                )
+        else:
+            return None, Value.illegal_operation(self, other)
+
+    def copy(self):
+        copy = List(self.elements[:])
+        copy.set_pos(self.pos_start, self.pos_end)
+        copy.set_context(self.context)
+        return copy
+
+    def __repr__(self):
+        return f'[{", ".join([str(x) for x in self.elements])}]'
+
+
 class Function(Value):
     def __init__(self, name, body_node, arg_names):
         """
@@ -320,6 +401,23 @@ class Interpreter(object):
         return RTResult().success(
             String(node.tok.value).set_context(context).set_pos(node.pos_start, node.pos_end)
         )
+
+    def visit_ListNode(self, node, context):
+        """
+        访问list
+        :param node:
+        :param context:
+        :return:
+        """
+        res = RTResult()
+        elements = []
+
+        # 获取list中的内容并添加到elements中
+        for en in node.element_nodes:
+            elements.append(res.register(self.visit(en, context)))
+            if res.error: return res
+
+        return res.success(List(elements).set_context(context).set_pos(node.pos_start, node.pos_end))
 
     def visit_VarAccessNode(self, node ,context):
         """

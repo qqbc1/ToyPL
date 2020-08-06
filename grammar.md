@@ -19,10 +19,13 @@ call        : atom (LPAREN (expr (COMMA expr)*)? RPAREN)?
 
 atom        : INT|FLOAT|STRING|IDENTIFIER
             : LPAREN expr RPAREN
+            : list-expr
             : if-expr
             : for-expr
             : while-expr
             : func-expr
+            
+list-exp    : LSQUARE (expr (COMMA expr)*)? RESQUARE // [1,2,3]
             
 if-expr     : KEYWORD:if expr KEYWORD:then expr
               (KEYWORD:elif expr KEYWORD:then expr)* // 多层if

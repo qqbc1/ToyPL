@@ -74,5 +74,19 @@ def test():
     command = 'var s = "text \nx\ty\nc"'
     func(command)
 
+    # 测试list
+    command = '[1,2,3]'
+    func(command)
+    command = '[1,2,3] + 4' # [1,2,3,4] 添加元素
+    func(command)
+    command = '[1,2,3] + [4,5,6]' # [1,2,3,[4,5,6]] 添加元素
+    func(command)
+    command = '[1,2,3] / 0' # 1 获取列表中元素
+    func(command)
+    command = '[1,2,3] * [4,5,6]' # [1,2,3,4,5,6] 拼接列表
+    func(command)
+    command = '[1,2,3] - 0' # [2,3] 删除列表中对应位置元素
+    func(command)
+
 
 test()
