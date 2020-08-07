@@ -217,17 +217,17 @@ class WhileNode(object):
 
 
 class FuncNode(object):
-    def __init__(self, var_name_tok, arg_name_toks, body_node, should_return_null):
+    def __init__(self, var_name_tok, arg_name_toks, body_node, should_auto_return):
         """
         :param var_name_tok: 函数名
         :param arg_name_toks: 函数参数
         :param body_node: 函数体
-        :param should_return_null 是否返回null，函数体内有多行时，该值为True
+        :param should_auto_return
         """
         self.var_name_tok = var_name_tok
         self.arg_name_toks = arg_name_toks
         self.body_node = body_node
-        self.should_return_null = should_return_null
+        self.should_auto_return = should_auto_return
 
         if self.var_name_tok: # 函数有函数名时
             self.pos_start = self.var_name_tok.pos_start
@@ -255,3 +255,35 @@ class CallNode(object):
             self.pos_end = self.arg_nodes[len(self.arg_nodes) - 1].pos_end
         else: # 调用函数不传参时
             self.pos_end = self.node_to_call.pos_end
+
+
+class ReturnNode(object):
+    def __init__(self, node_to_return, pos_start, pos_end):
+        """
+
+        :param node_to_return: return关键字后的expr对象
+        :param pos_start:
+        :param pos_end:
+        """
+        self.node_to_return = node_to_return
+
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+
+
+class ContinueNode(object):
+    """
+    continue操作，跳过此次循环
+    """
+    def __init__(self, pos_start, pos_end):
+        self.pos_start = pos_start
+        self.pos_end = pos_end
+
+
+class BreakNode(object):
+    """
+    break操作，跳出整个循环
+    """
+    def __init__(self, pos_start, pos_end):
+        self.pos_start = pos_start
+        self.pos_end = pos_end

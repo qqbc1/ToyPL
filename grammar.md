@@ -2,7 +2,12 @@
 
 支持多行编程
 
-statements  : NEWLINE* expr (NEWLINE+ expr)* NEWLINE*
+statements  : NEWLINE* expr (NEWLINE+ statement)* NEWLINE*
+
+statement   : KEYWORD:return expr?
+            : KEYWORD:continue
+            : KEYWORD:break
+            : expr
 
 expr        : KEYWORD:var IDENTIFIER EQ expr
             : comp-expr ((KEYWORD:and | KEYWORD:or) comp-expr)*
@@ -31,32 +36,22 @@ atom        : INT | FLOAT | STRING | IDENTIFIER
             
 list-exp    : LSQUARE (expr (COMMA expr)*)? RESQUARE // [1,2,3]
                  
-       
-if expr then;
-    print("懒编程");
-    var a = 6;
-elif expr then;
-    var b = 6;
-else;
-    var c = 7;
-              
-if-expr     : KEYWORD:if expr KEYWORD:then
+if-expr     : KEYWORD:if statement KEYWORD:then
               (expr if-expr-b | if-expr-c?) | (NEWLINE statements KEYWORD:end | if-expr-b | if-expr-c)
               
-if-expr-b   : KEYWORD:elif expr KEYWORD:then
+if-expr-b   : KEYWORD:elif statement KEYWORD:then
               (expr if-expr-b | if-expr-c?) | (NEWLINE statements KEYWORD:end | if-expr-b | if-expr-c)
               
 if-expr-c   : KEYWORD:else
-              expr | (NEWLINE statments KEYWORD:end)
+              statement | (NEWLINE statments KEYWORD:end)
                           
-              
 for-expr    : KEYWORD:for IDENTIFIER EQ expr KEYWORD:to expr
               (KEYWORD:step expr)? KEYWROD: then 
-              // 如果没有NEWLINE，则只是单纯的expr，如果有NEWLINE则说明有换行
-              expr | (NEWLINE statements KEYWORD:end)
+              // 如果没有NEWLINE，则只是单纯的statement，如果有NEWLINE则说明有换行
+              statement | (NEWLINE statements KEYWORD:end)
               
 while-expr  : KEYWORD:while expr KEYWROD:then
-              expr | (NEWLINE statements KEYWORD:end)
+              statement | (NEWLINE statements KEYWORD:end)
     
 // 支持匿名函数          
 func-expr   : KEYWORD func IDENTIFIER?

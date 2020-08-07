@@ -1,12 +1,15 @@
 from main import run
 
+
+def func(text):
+    result, error = run('<stdin>', text)
+    if error:
+        print(error.as_string())
+    elif result:
+        print(result)
+
+
 def test():
-    def func(text):
-        result, error = run('<stdin>', text)
-        if error:
-            print(error.as_string())
-        elif result:
-            print(result)
 
     # 测试基本运算
     command = '-10 * 3 + (2 + 1.0) / 4 - 3' # -32.25
@@ -132,4 +135,67 @@ def test():
     r1 ; r2
     '''
     func(command) # 0, 0, 9, -9
+    # toypl 中 \n 也表示换行
+    command = r'''
+              var r1 = var r2 = 0
+              for i = 1 to 10 step 2 then 
+                  var r1 = r1 + i 
+                  var r2 = r2 - i
+              end
+              r1 ; r2; i
+              '''
+    func(command)  # 0, 0, 25, -25, 9
+
+    # 测试 break, continue, return 关键字
+    command = '''
+    func add(a, d)
+        var res = 0
+        var a = a + 1
+        var res = a + b
+        return res
+    end
+    
+    var a = add(1,3)
+    print(a)
+    '''
+    func(command) # 6
+
+    command = '''
+    var a = []
+    var i = 0
+    while i < 10 then
+        var i = i + 1
+        if i == 4 then
+            continue
+        end
+        if i == 7 then
+            break
+        end
+        var a = append(a, i)
+    end
+    print(a)
+    '''
+    func(command) # 1, 2, 3, 5, 6
+
+
+
+def test2():
+
+    command = '''
+    var a = []
+    var i = 0
+    while i < 10 then
+        var i = i + 1
+        if i == 4 then
+            continue
+        end
+        if i == 7 then
+            break
+        end
+        var a = append(a, i)
+    end
+    print(a)
+    '''
+    func(command)
+
 test()

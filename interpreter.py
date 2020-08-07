@@ -47,7 +47,7 @@ class Interpreter(object):
         # 获取list中的内容并添加到elements中
         for en in node.element_nodes:
             elements.append(res.register(self.visit(en, context)))
-            if res.error: return res
+            if res.should_return(): return res
 
         return res.success(List(elements).set_context(context).set_pos(node.pos_start, node.pos_end))
 
@@ -83,7 +83,7 @@ class Interpreter(object):
         var_name = node.var_name_tok.value # 变量名
         # 因为node.value_node对应的节点可能是expr、Number等，所以需要递归处理
         value = res.register(self.visit(node.value_node, context))
-        if res.error: return res
+        if res.should_return(): return res
         # 将变量名与变量值存入符号表中
         context.symbol_table.set(var_name, value)
         return res.success(value)
@@ -98,11 +98,11 @@ class Interpreter(object):
         res = RTResult()
         # 左递归
         left = res.register(self.visit(node.left_node, context))
-        if res.error:
+        if res.should_return():
             return res
         # 右递归
         right = res.register(self.visit(node.right_node, context))
-        if res.error:
+        if res.should_return():
             return res
 
         if node.op_tok.type == TT_PLUS: # 加法操作符
@@ -154,7 +154,7 @@ class Interpreter(object):
         res = RTResult()
         # 当前number
         number = res.register(self.visit(node.node, context))
-        if res.error:
+        if res.should_return():
             return res
 
         error = None
@@ -185,11 +185,11 @@ class Interpreter(object):
         # if ... then ... elif ... then ...
         for condition, expr, should_return_null in node.case:
             condition_value = res.register(self.visit(condition, context))
-            if res.error: return res
+            if res.should_return(): return res
 
             if condition_value.is_true():
                 expr_value = res.register(self.visit(expr, context))
-                if res.error: return res
+                if res.should_return(): return res
                 if should_return_null:
                     return res.success(Number.null)
                 else:
@@ -199,7 +199,7 @@ class Interpreter(object):
         if node.else_case:
             expr, should_return_null =  node.else_case
             else_value = res.register(self.visit(expr, context))
-            if res.error: return res
+            if res.should_return(): return res
             if should_return_null:
                 return res.success(Number.null)
             else:
@@ -219,14 +219,14 @@ class Interpreter(object):
         elements = []
 
         start_value = res.register(self.visit(node.start_value_node, context))
-        if res.error: return res
+        if res.should_return(): return res
 
         end_value = res.register(self.visit(node.end_value_node, context))
-        if res.error: return res
+        if res.should_return(): return res
 
         if node.step_value_node:
             step_value = res.register(self.visit(node.step_value_node, context))
-            if res.error: return res
+            if res.should_return(): return res
         else:
             step_value = Number(1) # 默认每次循环，只跳过一个元素
 
@@ -256,8 +256,16 @@ class Interpreter(object):
             i += step_value.value # 循环
             # 执行循环体对应的expr
             # body_node可以对应着多行代码
-            elements.append(res.register(self.visit(node.body_node, context)))
-            if res.error: return res
+            value = res.register(self.visit(node.body_node, context))
+            if res.should_return() and res.loop_should_continue == False and res.loop_should_break == False:
+                return res
+            # 跳过此次循环
+            if res.loop_should_continue:
+                continue
+            # 跳出此次循环
+            if res.loop_should_break:
+                break
+            elements.append(value)
 
         if node.should_return_null:
             return res.success(Number.null)
@@ -277,12 +285,22 @@ class Interpreter(object):
 
         while True:
             condition = res.register(self.visit(node.condition_node, context))
-            if res.error: return res
+            if res.should_return(): return res
 
             if not condition.is_true(): break # while条件为False时，跳出while循环
 
-            res.register(self.visit(node.body_node, context))
-            if res.error: return res
+            value = res.register(self.visit(node.body_node, context))
+            # 只希望 res.error 为 True的时候返回res
+            if res.should_return() and res.loop_should_continue == False and res.loop_should_break == False:
+                return res
+            # 跳过此次循环
+            if res.loop_should_continue:
+                continue
+            # 跳出此次循环
+            if res.loop_should_break:
+                break
+            elements.append(value)
+
         if node.should_return_null:
             return res.success(Number.null)
         else:
@@ -303,7 +321,7 @@ class Interpreter(object):
         body_node = node.body_node
         arg_names = [arg_name.value for arg_name in node.arg_name_toks]
         # 通过Function构建函数对象
-        func_value = Function(func_name, body_node, arg_names).set_context(context).set_pos(node.pos_start, node.pos_end)
+        func_value = Function(func_name, body_node, arg_names, node.should_auto_return).set_context(context).set_pos(node.pos_start, node.pos_end)
 
         if node.var_name_tok:
             # 将函数对象存入到函数parent.context中，让 visit_CallNode 方法使用
@@ -323,17 +341,51 @@ class Interpreter(object):
         # self.visit(node.node_to_call, context) -> visit_VarAccessNode()
         # visit_VarAccessNode()方法通过节点名（即函数名）从符号表中获得函数对象本身
         value_to_call = res.register(self.visit(node.node_to_call, context))
-        if res.error: return res
+        if res.should_return(): return res
         # 为value_to_call（函数调用对象）设置上下文，这很重要，因为调用函数时，需要将函数内的context.parent设置成当前context
         value_to_call = value_to_call.copy().set_pos(node.pos_start, node.pos_end).set_context(context)
 
         for arg_node in node.arg_nodes:
             # 函数参数可能是执行式，也可以只是个数字 => a(1+2, 5)
             args.append(res.register(self.visit(arg_node, context)))
-            if res.error: return res
+            if res.should_return(): return res
         # 函数的执行需要传入解释器 interpreter
         return_value = res.register(value_to_call.execute(args, self))
-        if res.error: return res
+        if res.should_return(): return res
         return res.success(return_value)
 
+    def visit_ReturnNode(self, node, context):
+        """
+        return关键字
+        :param node:
+        :param context:
+        :return:
+        """
+        res = RTResult()
 
+        if node.node_to_return:
+            value = res.register(self.visit(node.node_to_return, context))
+            if res.should_return(): return res
+        else:
+            value = Number.null
+        # 返回对应值
+        return res.success_return(value)
+
+    def visit_ContinueNode(self, node, context):
+        """
+        toypl代码出现cointinue会被parse解析，然后会调用visit_ContinueNode方法
+        该方法会将 loop_should_continue 设置为 True
+        :param node:
+        :param context:
+        :return:
+        """
+        return RTResult().success_continue()
+
+    def visit_BreakNode(self, node, context):
+        """
+        与visit_ContinueNode同理
+        :param node:
+        :param context:
+        :return:
+        """
+        return RTResult().success_break()

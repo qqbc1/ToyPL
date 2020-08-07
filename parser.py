@@ -3,8 +3,6 @@ from ast_node import *
 from result import ParserResult
 from error import InvalidSyntaxError
 
-
-
 ####################
 # PARSER 解析器
 ####################
@@ -59,7 +57,7 @@ class Parser(object):
 
     def statements(self):
         """
-        statements  : NEWLINE* expr (NEWLINE+ expr)* NEWLINE*
+        statements  : NEWLINE* expr (NEWLINE+ statement)* NEWLINE*
         :return:
         """
         res = ParserResult()
@@ -70,7 +68,7 @@ class Parser(object):
             res.register_advancement()
             self.advance()
 
-        statement = res.register(self.expr())
+        statement = res.register(self.statement())
         if res.error: return res
         statements.append(statement)
 
@@ -86,13 +84,13 @@ class Parser(object):
             # 没有下一行了，退出循环
             if not more_statements: break
             # ??? 为什么使用 try_register 而不是 register ?
-            # 仔细观察规则： statements  :NEWLINE* expr (NEWLINE+ expr)* NEWLINE*
-            # 其中 (NEWLINE+ expr)* NEWLINE* 表示：
-            # (NEWLINE+ expr)*  (NEWLINE+ expr)整体可能出现0次或多次，如果至少出现一次，那么其中的NEWLINE可以出现1次或多次而其中的expr则比如出现
+            # 仔细观察规则： statements  :NEWLINE* statement (NEWLINE+ statement)* NEWLINE*
+            # 其中 (NEWLINE+ statement)* NEWLINE* 表示：
+            # (NEWLINE+ statement)*  (NEWLINE+ statement)整体可能出现0次或多次，如果至少出现一次，那么其中的NEWLINE可以出现1次或多次而其中的statement则比如出现
             # 规则的另外一部分，NEWLINE* 表示NEWLINE可能出现0次或多次
-            # 注意，(NEWLINE+ expr)* 与 NEWLINE*  都以 NEWLINE 开头，也就说，上一个token为NEWLINE，那么它下一个token是否为expr，无法判断
+            # 注意，(NEWLINE+ statement)* 与 NEWLINE*  都以 NEWLINE 开头，也就说，上一个token为NEWLINE，那么它下一个token是否为statement，无法判断
             # 此时就需要做尝试，通过try_register方法尝试解析，如果解析失败了，则回退
-            statement = res.try_register(self.expr())
+            statement = res.try_register(self.statement())
             if not statement:
                 # 解析失败，回退
                 self.reverse(res.to_reverse_count)
@@ -102,6 +100,47 @@ class Parser(object):
 
         # 多行逻辑返回list
         return res.success(ListNode(statements, pos_start, self.current_tok.pos_end.copy()))
+
+    def statement(self):
+        """
+        statement   : KEYWORD:return expr?
+                    : KEYWORD:continue
+                    : KEYWORD:break
+                    : expr
+        :return:
+        """
+        res = ParserResult()
+        pos_start = self.current_tok.pos_start.copy()
+
+        if self.current_tok.matches(TT_KEYWORD, 'return'):
+            res.register_advancement()
+            self.advance()
+
+            # KEYWORD:return expr? => expr? 表示expr出现0次或1次
+            # 语法上运行起返回为空，即只有return关键字
+            expr = res.try_register(self.expr())
+            if not expr:
+                self.reverse(res.to_reverse_count)
+            return res.success(ReturnNode(expr, pos_start, self.current_tok.pos_start.copy()))
+
+        if self.current_tok.matches(TT_KEYWORD, 'continue'):
+            res.register_advancement()
+            self.advance()
+            return res.success(ContinueNode(pos_start, self.current_tok.pos_start.copy()))
+
+        if self.current_tok.matches(TT_KEYWORD, 'break'):
+            res.register_advancement()
+            self.advance()
+            return res.success(BreakNode(pos_start, self.current_tok.pos_start.copy()))
+
+        expr = res.register(self.expr())
+        if res.error:
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected 'return', 'continue', 'break', 'var', 'if', 'for', 'where', 'fun', int, float, identifier, '+', '-', '(', '[' or 'not'"
+            ))
+        return res.success(expr)
+
 
     def if_expr(self):
         """
@@ -153,7 +192,7 @@ class Parser(object):
                         "Expected 'end'"
                     ))
             else:
-                expr = res.register(self.expr())
+                expr = res.register(self.statement())
                 if res.error: return res
                 else_case = (expr, False)
 
@@ -244,7 +283,7 @@ class Parser(object):
             # if <expr> then <expr>
             # 但如果if有多层，无法保证其他是否会换行，如elif层可能会换行
             # if <expr> then <expr> elif <expr> then;
-            expr = res.register(self.expr())
+            expr = res.register(self.statement())
             if res.error: return res
             cases.append((condition, expr, False))
             # 调用if_expr_b_or_c方法，无论其他层是否换行，都可以通过递归调用来解决
@@ -343,14 +382,15 @@ class Parser(object):
 
             return res.success(ForNode(var_name, start_value, end_value, step_value, body, True))
 
-        body = res.register(self.expr())
+        body = res.register(self.statement())
         if res.error: return res
 
         return res.success(ForNode(var_name, start_value, end_value, step_value, body, False))
 
     def while_expr(self):
         """
-        while-expr  : KEYWORD:while expr KEYWROD:then expr
+        while-expr  : KEYWORD:while expr KEYWROD:then
+              statement | (NEWLINE statements KEYWORD:end)
 
         var i = 0
         while i < 10 then
@@ -374,12 +414,11 @@ class Parser(object):
         if not self.current_tok.matches(TT_KEYWORD, 'then'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-            "Expected 'then'"
+                "Expected 'then'"
             ))
 
         res.register_advancement()
         self.advance()
-
 
         if self.current_tok.type == TT_NEWLINE:
             res.register_advancement()
@@ -399,7 +438,7 @@ class Parser(object):
 
             return res.success(WhileNode(condition, body, True))
 
-        body = res.register(self.expr())
+        body = res.register(self.statement())
         if res.error: return res
 
         return res.success(WhileNode(condition, body, False))
@@ -490,7 +529,9 @@ class Parser(object):
             # 解析函数体中的逻辑，获得该函数的返回值
             node_to_return = res.register(self.expr())
             if res.error: return res
-            return res.success(FuncNode(var_name_tok, arg_name_toks, node_to_return, False))
+            # should_auto_return设置为True，表示自动返回，此时的函数为一行函数，不需要通过return关键字返回内容
+            # func add(a,b) -> a + b  => add函数会返回 a+b 的结果
+            return res.success(FuncNode(var_name_tok, arg_name_toks, node_to_return, True))
 
         if self.current_tok.type != TT_NEWLINE:
             return res.failure(InvalidSyntaxError(
@@ -512,8 +553,9 @@ class Parser(object):
 
         res.register_advancement()
         self.advance()
-
-        return res.success(FuncNode(var_name_tok, arg_name_toks, body, True))
+        # 此时的函数为多行函数，需要通过return关键字才可返回
+        #  func add(a,b); return a + b; end
+        return res.success(FuncNode(var_name_tok, arg_name_toks, body, False))
 
     def call(self):
         """
