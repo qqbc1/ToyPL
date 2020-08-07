@@ -134,12 +134,17 @@ class IfNode(object):
     if相关操作
     """
     def __init__(self, case, else_case):
+        """
+        :param case:
+        :param else_case:
+        """
         self.case = case
         self.else_case = else_case
 
         # 因为if判断可以有多层，所以case是二元数组
         self.pos_start = self.case[0][0].pos_start
-        self.pos_end = (self.else_case or self.case[len(self.case) - 1][0]).pos_end
+        # 第二个判断的开始位置，为第一个判断的最后一个位置
+        self.pos_end = (self.else_case or self.case[-1])[0].pos_end
 
     def __repr__(self):
         result = ''
@@ -154,13 +159,14 @@ class ForNode(object):
     """
     for循环
     """
-    def __init__(self, var_name_tok, start_value_node, end_value_node, step_value_node, body_node):
+    def __init__(self, var_name_tok, start_value_node, end_value_node, step_value_node, body_node, should_return_null):
         """
         :param var_name_tok: 循环变量
         :param start_value_node: 起始值
         :param end_value_node: 终止值
         :param step_value_node: 每次循环跳跃
         :param body_node: 循环体逻辑
+        :param should_return_null  是否返回null，for循环内有多行时，该值为True
 
         for var i = 0 to 10 step 2 then
             body
@@ -170,42 +176,58 @@ class ForNode(object):
         10 => end_value_node
         2 => step_value_node
         body => body_node
+
+        body 由多行构成时，每一行的执行，should_return_null为True，知道最后
+
+        body =>
+            <expr>;
+            <expr>;
+            <expr>;
+            end
         """
         self.var_name_tok = var_name_tok
         self.start_value_node = start_value_node
         self.end_value_node = end_value_node
         self.step_value_node = step_value_node
         self.body_node = body_node
+        self.should_return_null = should_return_null
 
+
+        self.pos_start = self.var_name_tok.pos_start
+        self.pos_end = self.body_node.pos_end
 
 class WhileNode(object):
     """
     while循环
     """
-    def __init__(self, condition_node, body_node):
+    def __init__(self, condition_node, body_node, should_return_null):
         """
         while codition_node then
             body_node
         :param condition_node: while关键字后的条件语句
         :param body_node: while循环体中逻辑
+        :param should_return_null 是否返回null，while循环内有多行时，该值为True
         """
         self.condition_node = condition_node
         self.body_node = body_node
+        self.should_return_null = should_return_null
 
         self.pos_start = self.condition_node.pos_start
         self.pos_end = self.body_node.pos_end
 
 
 class FuncNode(object):
-    def __init__(self, var_name_tok, arg_name_toks, body_node):
+    def __init__(self, var_name_tok, arg_name_toks, body_node, should_return_null):
         """
         :param var_name_tok: 函数名
         :param arg_name_toks: 函数参数
         :param body_node: 函数体
+        :param should_return_null 是否返回null，函数体内有多行时，该值为True
         """
         self.var_name_tok = var_name_tok
         self.arg_name_toks = arg_name_toks
         self.body_node = body_node
+        self.should_return_null = should_return_null
 
         if self.var_name_tok: # 函数有函数名时
             self.pos_start = self.var_name_tok.pos_start

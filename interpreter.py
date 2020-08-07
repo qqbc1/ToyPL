@@ -18,8 +18,8 @@ class Interpreter(object):
         method = getattr(self, method_name, self.no_visit_method)
         return method(node, context)
 
-    def no_visit_method(self):
-        raise Exception(f'No visit_{type(node).__name__}')
+    def no_visit_method(self, node, context):
+        raise Exception(f'No visit_{type(node).__name__} method defined')
 
     def visit_NumberNode(self, node, context):
         # visit 循环调用，由NumberNode终结符结束
@@ -183,23 +183,30 @@ class Interpreter(object):
         res = RTResult()
 
         # if ... then ... elif ... then ...
-        for condition, expr in node.case:
+        for condition, expr, should_return_null in node.case:
             condition_value = res.register(self.visit(condition, context))
             if res.error: return res
 
             if condition_value.is_true():
                 expr_value = res.register(self.visit(expr, context))
                 if res.error: return res
-                return res.success(expr_value)
+                if should_return_null:
+                    return res.success(Number.null)
+                else:
+                    return res.success(expr_value)
 
         # else ...
         if node.else_case:
-            else_value = res.register(self.visit(node.else_case, context))
+            expr, should_return_null =  node.else_case
+            else_value = res.register(self.visit(expr, context))
             if res.error: return res
-            return res.success(else_value)
+            if should_return_null:
+                return res.success(Number.null)
+            else:
+                return res.success(else_value)
 
         # if判断，不满足条件，则返回None
-        return res.success(None)
+        return res.success(Number.null)
 
     def visit_ForNode(self, node, context):
         """
@@ -209,6 +216,7 @@ class Interpreter(object):
         :return:
         """
         res = RTResult()
+        elements = []
 
         start_value = res.register(self.visit(node.start_value_node, context))
         if res.error: return res
@@ -247,10 +255,15 @@ class Interpreter(object):
             context.symbol_table.set(node.var_name_tok.value, Number(i))
             i += step_value.value # 循环
             # 执行循环体对应的expr
-            res.register(self.visit(node.body_node, context))
+            # body_node可以对应着多行代码
+            elements.append(res.register(self.visit(node.body_node, context)))
             if res.error: return res
 
-        return res.success(None)
+        if node.should_return_null:
+            return res.success(Number.null)
+        else:
+            # 不为null，则返回循环体中每次循环逻辑执行后返回的值
+            return res.success(List(elements).set_pos(node.pos_start, node.pos_end).set_context(context))
 
     def visit_WhileNode(self, node, context):
         """
@@ -260,6 +273,7 @@ class Interpreter(object):
         :return:
         """
         res = RTResult()
+        elements = []
 
         while True:
             condition = res.register(self.visit(node.condition_node, context))
@@ -269,8 +283,12 @@ class Interpreter(object):
 
             res.register(self.visit(node.body_node, context))
             if res.error: return res
+        if node.should_return_null:
+            return res.success(Number.null)
+        else:
+            # 不为null，则返回循环体中每次循环逻辑执行后返回的值
+            return res.success(List(elements).set_pos(node.pos_start, node.pos_end).set_context(context))
 
-        return res.success(None)
 
     def visit_FuncNode(self, node, context):
         """

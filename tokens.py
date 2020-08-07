@@ -40,6 +40,7 @@ TT_ARROW = "ARROW" # -> 中的箭头 >
 TT_STRING = "STRING" # 字符串
 TT_LSQUARE = "LSQUARE" # [
 TT_RSQUARE = "RSQUARE" # ]
+TT_NEWLINE = "NEWLINE" # ;\n 新的一行
 
 
 KEYWORDS = [
@@ -56,6 +57,7 @@ KEYWORDS = [
     'step',
     'while',
     'func',
+    'end'
 ]
 
 class Token(object):

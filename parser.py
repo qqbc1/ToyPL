@@ -25,11 +25,31 @@ class Parser(object):
             self.current_tok = self.tokens[self.tok_idx]
         return self.current_tok
 
+    def reverse(self, amount=1):
+        """
+        从当前位置（self.tok_idx）往前移动amount个位置，获取该位置对应的tokens，与advance函数是相反的操作
+
+        :param amount: 往前amount步
+        :return:
+        """
+        self.tok_idx -= amount
+        self.update_current_tok()
+        return self.current_tok
+
+    def update_current_tok(self):
+        """
+        更新当前token
+        如果往前了几步，那么当前的token也需要更新成前几步对应的token
+        :return:
+        """
+        if self.tok_idx >= 0 and self.tok_idx < len(self.tokens):
+            self.current_tok = self.tokens[self.tok_idx]
+
     def parse(self):
         # 语法解析Tokens
 
         # 从其实非终结符开始 => AST Root Node
-        res = self.expr()
+        res = self.statements()
         if not res.error and self.current_tok.type != TT_EOF:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
@@ -37,79 +57,198 @@ class Parser(object):
             ))
         return res
 
-    def if_expr(self):
+    def statements(self):
         """
-        if-expr     : KEYWORD:if expr KEYWORD:then expr
-                      (KEYWORD:elif expr KEYWORD:then expr)* // 多层if
-                      (KEYWORD:else expr)?
-
-        if ... then
-        elif ... then
-        else ...
+        statements  : NEWLINE* expr (NEWLINE+ expr)* NEWLINE*
         :return:
         """
         res = ParserResult()
-        case = []
+        statements = []
+        pos_start = self.current_tok.pos_start.copy()
+
+        while self.current_tok.type == TT_NEWLINE: # 换行
+            res.register_advancement()
+            self.advance()
+
+        statement = res.register(self.expr())
+        if res.error: return res
+        statements.append(statement)
+
+        more_statements = True
+        while True:
+            newline_count = 0
+            while self.current_tok.type == TT_NEWLINE:
+                res.register_advancement()
+                self.advance()
+                newline_count += 1
+            if newline_count == 0:
+                more_statements= False
+            # 没有下一行了，退出循环
+            if not more_statements: break
+            statement = res.try_register(self.expr())
+            if not statement:
+                self.reverse(res.to_reverse_count)
+                more_statements = False
+                continue
+            statements.append(statement)
+
+        # 多行逻辑返回list
+        return res.success(ListNode(statements, pos_start, self.current_tok.pos_end.copy()))
+
+    def if_expr(self):
+        """
+        if-expr     : KEYWORD:if expr KEYWORD:then
+              (expr if-expr-b | if-expr-c?) | (NEWLINE statements KEYWORD:end | if-expr-b | if-expr-c)
+        :return:
+        """
+        res = ParserResult()
+        # 如果是if
+        cases, else_case = res.register(self.if_expr_cases('if'))
+        if res.error: return res
+        return res.success(IfNode(cases, else_case))
+
+    def if_expr_b(self):
+        """
+        if-expr-b   : KEYWORD:elif expr KEYWORD:then
+              (expr if-expr-b | if-expr-c?) | (NEWLINE statements KEYWORD:end | if-expr-b | if-expr-c)
+        :return:
+        """
+        return self.if_expr_cases('elif')
+
+    def if_expr_c(self):
+        """
+        if-expr-c   : KEYWORD:else
+              expr | (NEWLINE statments KEYWORD:end)
+        :return:
+        """
+        res = ParserResult()
         else_case = None
 
-        # if-expr     : KEYWORD:if expr KEYWORD:then expr
-        if not self.current_tok.matches(TT_KEYWORD, 'if'):
+        if self.current_tok.matches(TT_KEYWORD, 'else'):
+            res.register_advancement()
+            self.advance()
+
+            if self.current_tok.type == TT_NEWLINE:
+                res.register_advancement()
+                self.advance()
+
+                statements = res.register(self.statements())
+                if res.error: return res
+                else_case (statements, True)
+
+                if self.current_tok.matches(TT_KEYWORD, 'end'):
+                    res.register_advancement()
+                    self.advance()
+                else:
+                    return res.failure(InvalidSyntaxError(
+                        self.current_tok.pos_start, self.current_tok.pos_end,
+                        "Expected 'end'"
+                    ))
+            else:
+                expr = res.register(self.expr())
+                if res.error: return res
+                else_case = (expr, False)
+
+        return res.success(else_case)
+
+    def if_expr_b_or_c(self):
+        """if判断中，使用elif还是else"""
+        res = ParserResult()
+        cases, else_case = [], None
+
+        if self.current_tok.matches(TT_KEYWORD, 'elif'):
+            all_cases = res.register(self.if_expr_b())
+            if res.error: return res
+            cases, else_case = all_cases
+        else:
+            else_case = res.register(self.if_expr_c())
+            if res.error: return res
+
+        return res.success((cases, else_case))
+
+    def if_expr_cases(self, case_keyword):
+        """
+        KEYWORD:case_keyword expr KEYWORD:then
+              (expr if-expr-b | if-expr-c?) | (NEWLINE statements KEYWORD:end | if-expr-b | if-expr-c)
+
+        :param case_keyword: if 或 elif
+        :return:
+        """
+        res = ParserResult()
+        cases = []
+        else_case = None
+
+        # 判断关键字是为 if 或 elif
+        if not self.current_tok.matches(TT_KEYWORD, case_keyword):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "expected 'if'"
+                f"Expected '{case_keyword}'"
             ))
 
         res.register_advancement()
-        self.advance() # 获取下个token
+        self.advance()
 
-        condition = res.register(self.expr()) # 获得条件
+        # 执行if或elif关键字后的expr，获得判断条件的condition
+        condition = res.register(self.expr())
         if res.error: return res
 
         if not self.current_tok.matches(TT_KEYWORD, 'then'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "expected 'then'"
+                "Expected 'then"
             ))
 
         res.register_advancement()
-        self.advance()  # 获取下个token
+        self.advance()
 
-        expr = res.register(self.expr())
-        if res.error: return res
-        case.append((condition, expr))
-
-        # (KEYWORD:elif expr KEYWORD:then expr)*
-        while self.current_tok.matches(TT_KEYWORD, 'elif'):
+        # 如果是换行
+        if self.current_tok.type == TT_NEWLINE:
             res.register_advancement()
             self.advance()
-            condition = res.register(self.expr())
+            statements = res.register(self.statements())
             if res.error: return res
+            cases.append((condition, statements, True))
+            # 判断关键字是否为end，如果为end，则说明if判断只有一层，即
+            # if <expr> then;
+            #   <expr>;
+            #   <expr>;
+            # end
+            if self.current_tok.matches(TT_KEYWORD, 'end'):
+                res.register_advancement()
+                self.advance()
+            else:
+                # 如果不为end，则说明if判断有多层，即
+                # if <expr> then;
+                #   <expr>;
+                #   <expr>;
+                # elif <expr> then;
+                #   <expr>;
+                #   <expr>;
+                # else;
+                #   <expr>;
+                # end
+                new_cases, else_case = res.register(self.if_expr_b_or_c())
+                if res.error: return res
+                cases.extend(new_cases)
 
-            if not self.current_tok.matches(TT_KEYWORD, 'then'):
-                return res.failure(InvalidSyntaxError(
-                    self.current_tok.pos_start, self.current_tok.pos_end,
-                    "expected 'then'"
-                ))
-
-            res.register_advancement()
-            self.advance()
+        else:
+            # 不是换行符; 则说明当前层语句只有一行，即
+            # if <expr> then <expr>
+            # 但如果if有多层，无法保证其他是否会换行，如elif层可能会换行
+            # if <expr> then <expr> elif <expr> then;
             expr = res.register(self.expr())
             if res.error: return res
-            case.append((condition, expr))
-
-        # (KEYWORD:else expr)?
-        if self.current_tok.matches(TT_KEYWORD, 'else'):
-            res.register_advancement()
-            self.advance()
-            else_case = res.register(self.expr())
+            cases.append((condition, expr, False))
+            # 调用if_expr_b_or_c方法，无论其他层是否换行，都可以通过递归调用来解决
+            new_cases, else_case = res.register(self.if_expr_b_or_c())
             if res.error: return res
-
-        return res.success(IfNode(case, else_case))
+            cases.extend(new_cases)
+        return res.success((cases, else_case))
 
     def for_expr(self):
         """
         for-expr    : KEYWORD:for IDENTIFIER EQ expr KEYWORD:to expr
-              (KEYWORD:step expr)? KEYWROD: then expr
+              (KEYWORD:step expr)? KEYWROD: then expr | (NEWLINE statements KEYWORD:end)
 
         var res = 1
         for var i = 1 to 10 then
@@ -177,10 +316,29 @@ class Parser(object):
 
         res.register_advancement()
         self.advance()
+
+        if self.current_tok.type == TT_NEWLINE:
+            res.register_advancement()
+            self.advance()
+
+            body = res.register(self.statements())
+            if res.error: return res
+
+            if not self.current_tok.matches(TT_KEYWORD, 'end'):
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected 'end'"
+                ))
+
+            res.register_advancement()
+            self.advance()
+
+            return res.success(ForNode(var_name, start_value, end_value, step_value, body, True))
+
         body = res.register(self.expr())
         if res.error: return res
 
-        return res.success(ForNode(var_name, start_value, end_value, step_value, body))
+        return res.success(ForNode(var_name, start_value, end_value, step_value, body, False))
 
     def while_expr(self):
         """
@@ -213,10 +371,30 @@ class Parser(object):
 
         res.register_advancement()
         self.advance()
+
+
+        if self.current_tok.type == TT_NEWLINE:
+            res.register_advancement()
+            self.advance()
+            # 调用statements方法，递归解析多行逻辑
+            body = res.register(self.statements())
+            if res.error: return res
+
+            if not self.current_tok.matches(TT_KEYWORD, 'end'):
+                return res.failure(InvalidSyntaxError(
+                    self.current_tok.pos_start, self.current_tok.pos_end,
+                    "Expected 'end'"
+                ))
+
+            res.register_advancement()
+            self.advance()
+
+            return res.success(WhileNode(condition, body, True))
+
         body = res.register(self.expr())
         if res.error: return res
 
-        return res.success(WhileNode(condition, body))
+        return res.success(WhileNode(condition, body, False))
 
     def func_expr(self):
         """
@@ -297,18 +475,37 @@ class Parser(object):
         res.register_advancement()
         self.advance()
         # func a (x,y) ->
-        if self.current_tok.type != TT_ARROW:
+        if self.current_tok.type == TT_ARROW: # (ARROW expr)
+
+            res.register_advancement()
+            self.advance()
+            # 解析函数体中的逻辑，获得该函数的返回值
+            node_to_return = res.register(self.expr())
+            if res.error: return res
+            return res.success(FuncNode(var_name_tok, arg_name_toks, node_to_return, False))
+
+        if self.current_tok.type != TT_NEWLINE:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected -> "
+                "Expected '->' or ';' "
             ))
 
         res.register_advancement()
         self.advance()
-        # 解析函数体中的逻辑，获得该函数的返回值
-        node_to_return = res.register(self.expr())
+
+        body = res.register(self.statements())
         if res.error: return res
-        return res.success(FuncNode(var_name_tok, arg_name_toks, node_to_return))
+
+        if not self.current_tok.matches(TT_KEYWORD, 'end'):
+            return res.failure(InvalidSyntaxError(
+                self.current_tok.pos_start, self.current_tok.pos_end,
+                "Expected 'end' "
+            ))
+
+        res.register_advancement()
+        self.advance()
+
+        return res.success(FuncNode(var_name_tok, arg_name_toks, body, True))
 
     def call(self):
         """

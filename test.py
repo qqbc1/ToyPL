@@ -98,5 +98,20 @@ def test():
     command = 'var a = extend([1,2,3], [4,5])' # a => [1,2,3,4,5]
     func(command)
 
-
+    # 测试多行支持, ; 表示换行
+    command = '1+2; 3+4' # 3, 7
+    func(command)
+    command = 'var r = if 5 == 5 then "懒编程" else "二两说"' # 懒编程
+    func(command)
+    command = r'''
+    if 3 == 3 then;
+        var a = 1;
+        var b = a + 3;
+    elif 3 > 1 then;
+        var c = 6;
+    else print("123")
+    '''
+    func(command)
+    command = 'a; b' # 1, 4
+    func(command)
 test()

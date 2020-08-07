@@ -78,6 +78,9 @@ class Lexer(object):
                 self.advance()
             elif self.current_char == '"':
                 tokens.append(self.make_string())
+            elif self.current_char in ';\n': # 换行
+                tokens.append(Token(TT_NEWLINE, pos_start=self.pos))
+                self.advance()
             else:
                 # 没有匹配任何Token，return some error
                 pos_start = self.pos.copy()
