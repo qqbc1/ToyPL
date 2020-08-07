@@ -1,4 +1,4 @@
-# 递归方式实现斐波那契数列
+# 递归
 func Fib(n)
     if n <= 0 then
         return 0
@@ -9,7 +9,7 @@ func Fib(n)
     end
 end
 
-# 通过列表实现斐波那契数列
+# 将斐波那契数列存入列表中
 func Fib_Res(n)
     var res_list = []
     for i = 1 to n then
