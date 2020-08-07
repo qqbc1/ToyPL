@@ -1,3 +1,4 @@
+
 class SymbolTable(object):
     """
     符号表实现

@@ -67,11 +67,11 @@ def test():
     # 测试 string 类型
     command = 'var s = "Text"'
     func(command)
-    command = 'var s = "text \"x\""'
+    command = r'var s = "text \"x\""'
     func(command)
-    command = 'var s = "text \\ x \\ "v'
+    command = r'var s = "text \\ x \\"'
     func(command)
-    command = 'var s = "text \nx\ty\nc"'
+    command = r'var s = "text \nx\ty\nc"'
     func(command)
 
     # 测试list
@@ -86,6 +86,16 @@ def test():
     command = '[1,2,3] * [4,5,6]' # [1,2,3,4,5,6] 拼接列表
     func(command)
     command = '[1,2,3] - 0' # [2,3] 删除列表中对应位置元素
+    func(command)
+
+    # 测试内建函数
+    command = 'print(10)' # 输入 10
+    func(command)
+    command = 'var a = append([1,2,3], 4)' # a => [1,2,3,4]
+    func(command)
+    command = 'var a = pop([1,2,3], 0)' # a => 1
+    func(command)
+    command = 'var a = extend([1,2,3], [4,5])' # a => [1,2,3,4,5]
     func(command)
 
 
