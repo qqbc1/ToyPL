@@ -109,9 +109,27 @@ def test():
         var b = a + 3;
     elif 3 > 1 then;
         var c = 6;
-    else print("123")
+    else print("123");
+    a; b
+    ''' # 0, 1, 4
+    func(command)
+    command = r'''
+            var r1 = var r2 = 0;
+            for i = 1 to 10 step 2 then; 
+                var r1 = r1 + i; 
+                var r2 = r2 - i;
+            end;
+            r1 ; r2; i
+            '''
+    func(command)# 0, 0, 25, -25, 9
+    command = '''
+    var r1 = var r2 = 0;
+    while i < 10 then;
+        var r1 = r1 + i;
+        var r2 = r2 - i;
+        var i = i + 1;
+    end;
+    r1 ; r2
     '''
-    func(command)
-    command = 'a; b' # 1, 4
-    func(command)
+    func(command) # 0, 0, 9, -9
 test()

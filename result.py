@@ -23,6 +23,7 @@ class ParserResult(object):
 
     def try_register(self, parser_result):
         if parser_result.error:
+            # 失败，则记录要回退的步数，用于回到执行前，所在的tokens列表中的位置
             self.to_reverse_count = parser_result.advance_count
             return None
         return self.register(parser_result)
