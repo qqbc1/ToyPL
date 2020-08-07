@@ -294,6 +294,19 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(list_1)
     execute_extend.arg_names = ["list_1", "list_2"]
 
+    def execute_len(self, exec_ctx):
+        """获得list的长度"""
+        list_ = exec_ctx.symbol_table.get('list')
+        if not isinstance(list_, List):
+            return RTResult().failure(RTError(
+                self.pos_start, self.pos_end,
+                "Argment must be list",
+                exec_ctx
+            ))
+
+        return RTResult().success(Number(len(list_.elements)))
+    execute_len.arg_names = ["list"]
+
 
 # 内建函数
 BuiltInFunction.print       = BuiltInFunction("print")
@@ -306,3 +319,4 @@ BuiltInFunction.is_function = BuiltInFunction("is_function")
 BuiltInFunction.append      = BuiltInFunction("append")
 BuiltInFunction.pop         = BuiltInFunction("pop")
 BuiltInFunction.extend      = BuiltInFunction("extend")
+BuiltInFunction.len         = BuiltInFunction("len")

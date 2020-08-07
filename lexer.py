@@ -30,6 +30,9 @@ class Lexer(object):
             if self.current_char in (' ', '\t'):
                 # 为空格或制表符，直接跳过
                 self.advance()
+            elif self.current_char == '#':
+                # 跳过注释
+                self.skip_comment()
             elif self.current_char in DIGITS: # 识别数字
                 tokens.append(self.make_number())
 
@@ -89,6 +92,13 @@ class Lexer(object):
                 return [], IllegalCharError(pos_start, self.pos, f"'{char}'")
         tokens.append(Token(TT_EOF, pos_start=self.pos))
         return tokens, None
+
+    def skip_comment(self):
+        # 跳过toypl中的注释
+        self.advance()
+        while self.current_char != '\n':
+            self.advance()
+        self.advance()
 
     def make_number(self):
         """

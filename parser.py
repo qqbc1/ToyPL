@@ -181,7 +181,7 @@ class Parser(object):
 
                 statements = res.register(self.statements())
                 if res.error: return res
-                else_case (statements, True)
+                else_case = (statements, True)
 
                 if self.current_tok.matches(TT_KEYWORD, 'end'):
                     res.register_advancement()
