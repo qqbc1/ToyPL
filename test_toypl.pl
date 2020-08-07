@@ -1,3 +1,5 @@
+# Toy Programming language 使用测试
+
 # 递归
 func Fib(n)
     if n <= 0 then
@@ -12,7 +14,7 @@ end
 # 将斐波那契数列存入列表中
 func Fib_Res(n)
     var res_list = []
-    for i = 1 to n then
+    for i = 1 to n+1 then
         var res_list = append(res_list, Fib(i))
     end
     return res_list
