@@ -85,8 +85,16 @@ class Parser(object):
                 more_statements= False
             # 没有下一行了，退出循环
             if not more_statements: break
+            # ??? 为什么使用 try_register 而不是 register ?
+            # 仔细观察规则： statements  :NEWLINE* expr (NEWLINE+ expr)* NEWLINE*
+            # 其中 (NEWLINE+ expr)* NEWLINE* 表示：
+            # (NEWLINE+ expr)*  (NEWLINE+ expr)整体可能出现0次或多次，如果至少出现一次，那么其中的NEWLINE可以出现1次或多次而其中的expr则比如出现
+            # 规则的另外一部分，NEWLINE* 表示NEWLINE可能出现0次或多次
+            # 注意，(NEWLINE+ expr)* 与 NEWLINE*  都以 NEWLINE 开头，也就说，上一个token为NEWLINE，那么它下一个token是否为expr，无法判断
+            # 此时就需要做尝试，通过try_register方法尝试解析，如果解析失败了，则回退
             statement = res.try_register(self.expr())
             if not statement:
+                # 解析失败，回退
                 self.reverse(res.to_reverse_count)
                 more_statements = False
                 continue
